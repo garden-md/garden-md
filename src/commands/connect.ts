@@ -32,6 +32,13 @@ const BUILTIN_CONNECTORS: BuiltinConnector[] = [
     scriptFile: 'granola.mjs',
     apiKeyHint: 'Go to granola.ai → Settings → API → Generate API key',
   },
+  {
+    name: 'Fireflies',
+    id: 'fireflies',
+    description: 'Meeting transcripts & summaries from Fireflies.ai',
+    scriptFile: 'fireflies.mjs',
+    apiKeyHint: 'Go to app.fireflies.ai → Integrations → Fireflies API → Copy API key',
+  },
 ];
 
 export async function connectCommand(options: { repair?: boolean }): Promise<void> {
