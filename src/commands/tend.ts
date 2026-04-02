@@ -104,10 +104,24 @@ export async function tendCommand(): Promise<void> {
         result = await processItem(config, processContent, wikiIndex, wikiPath);
       }
 
-      // Write the linked transcript to Meetings/
+      // Apply entity links to the ORIGINAL full content (not the truncated version)
+      // The AI extracted entities from the truncated content, but we want the full
+      // transcript in the wiki with those same links inserted.
+      let fullLinkedText = content;
+      for (const entity of result.entities) {
+        const entityFileName = sanitizeFilename(entity.name);
+        const linkTarget = `../${entity.folder}/${entityFileName}`;
+        const link = `[${entity.name}](${linkTarget})`;
+        // Replace first unlinked mention (avoid double-linking)
+        const escaped = entity.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp(`(?<!\\[)\\b${escaped}\\b(?!\\])`, 'i');
+        fullLinkedText = fullLinkedText.replace(re, link);
+      }
+
+      // Write the full linked transcript to Meetings/
       const meetingFileName = sanitizeFilename(result.title || items[i]);
       const meetingPath = path.join(wikiPath, 'Meetings', meetingFileName);
-      fs.writeFileSync(meetingPath, result.linkedText, 'utf-8');
+      fs.writeFileSync(meetingPath, fullLinkedText, 'utf-8');
       pagesCreated++;
 
       // Create/update entity pages
