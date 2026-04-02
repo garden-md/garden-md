@@ -72,13 +72,20 @@ export async function tendCommand(): Promise<void> {
     const itemPath = path.join(wildlandPath, items[i]);
     const content = fs.readFileSync(itemPath, 'utf-8');
 
-    bar.update({ item: items[i].slice(0, 40) });
+    const itemName = items[i].slice(0, 40);
+    bar.update({ item: itemName });
 
     // Skip very short files (likely metadata-only)
     if (content.trim().length < 50) {
       bar.increment();
       continue;
     }
+
+    // Log to file for debugging
+    const logDir = path.join(path.dirname(wildlandPath), 'logs');
+    fs.mkdirSync(logDir, { recursive: true });
+    const logFile = path.join(logDir, 'tend.log');
+    fs.appendFileSync(logFile, `[${new Date().toISOString()}] Processing ${items[i]} (${content.length} chars)\n`);
 
     try {
       // Smart truncation: for Grain files with ## Transcript section,
@@ -168,9 +175,12 @@ export async function tendCommand(): Promise<void> {
       // Remove from wildland
       fs.unlinkSync(itemPath);
 
+      fs.appendFileSync(logFile, `[${new Date().toISOString()}] ✓ ${items[i]} → ${result.entities.length} entities\n`);
+
     } catch (err: any) {
       // Item stays in wildland for retry
-      console.log(chalk.dim(`\n  ⚠ Failed to process ${items[i]}: ${err.message?.slice(0, 100)}`));
+      fs.appendFileSync(logFile, `[${new Date().toISOString()}] ✗ ${items[i]}: ${err.message?.slice(0, 200)}\n`);
+      console.log(chalk.dim(`\n  ⚠ ${items[i]}: ${err.message?.slice(0, 100)}`));
     }
 
     bar.update(i + 1);

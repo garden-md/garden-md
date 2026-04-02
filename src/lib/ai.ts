@@ -6,26 +6,33 @@ export interface AIResponse {
   text: string;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout after ${ms / 1000}s: ${label}`)), ms)
+    ),
+  ]);
+}
+
 export async function callAI(config: GardenConfig, systemPrompt: string, userPrompt: string): Promise<string> {
   const { provider, apiKey, model } = config.ai;
 
   if (provider === 'anthropic') {
     const client = new Anthropic({ apiKey });
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120_000); // 2 min timeout
-    try {
-      const response = await client.messages.create({
+    const response = await withTimeout(
+      client.messages.create({
         model,
         max_tokens: 8192,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
-      }, { signal: controller.signal as any });
-      const block = response.content[0];
-      if (block.type === 'text') return block.text;
-      throw new Error('Unexpected response type from Anthropic');
-    } finally {
-      clearTimeout(timeout);
-    }
+      }),
+      120_000,
+      `Anthropic ${model}`
+    );
+    const block = response.content[0];
+    if (block.type === 'text') return block.text;
+    throw new Error('Unexpected response type from Anthropic');
   }
 
   if (provider === 'openai') {
