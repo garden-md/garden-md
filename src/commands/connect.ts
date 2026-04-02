@@ -77,9 +77,29 @@ type: transcript
       cleanScript = codeMatch[1].trim();
     }
 
-    fs.writeFileSync(scriptPath, cleanScript, 'utf-8');
+    fs.writeFileSync(scriptPath, cleanScript, { encoding: 'utf-8', mode: 0o600 });
 
-    spinner.text = 'Testing connection...';
+    spinner.stop();
+
+    // Show generated script for review before execution
+    console.log(chalk.yellow('\n📄 Generated connector script:\n'));
+    console.log(chalk.dim('─'.repeat(60)));
+    console.log(cleanScript);
+    console.log(chalk.dim('─'.repeat(60)));
+    console.log(chalk.dim(`\nSaved to: ${scriptPath}\n`));
+
+    const { confirm } = await import('@inquirer/prompts');
+    const approved = await confirm({
+      message: 'Review the script above. Run it now?',
+      default: true,
+    });
+
+    if (!approved) {
+      console.log(chalk.yellow('\n⏸ Skipped. Edit the script manually, then run `garden sync` to test.\n'));
+      return;
+    }
+
+    const runSpinner = ora('Testing connection...').start();
 
     // Test the connector by importing and running it directly
     try {
@@ -87,7 +107,7 @@ type: transcript
       const fn = mod.default || mod.sync;
       await fn({ apiKey, wildlandPath });
     } catch (err: any) {
-      spinner.fail('Connection test failed');
+      runSpinner.fail('Connection test failed');
       console.log(chalk.yellow('\nThe connector script may need adjustments.'));
       console.log(chalk.dim(`Script saved at: ${scriptPath}`));
       console.log(chalk.dim(`Error: ${err.message?.slice(0, 200)}`));
@@ -111,7 +131,7 @@ type: transcript
 
     saveConfig(config);
 
-    spinner.succeed(`Connected to ${serviceName}`);
+    runSpinner.succeed(`Connected to ${serviceName}`);
     console.log(`\n  ${chalk.cyan(wildlandFiles.length)} items in wildland`);
     console.log(`  Connector saved to ${chalk.dim(scriptPath)}`);
     console.log(`\n  Next: run ${chalk.bold('garden tend')} to process items into your wiki.\n`);
