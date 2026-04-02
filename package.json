@@ -1,12 +1,12 @@
 {
   "name": "garden-md",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Turn your meeting transcripts into a Wikipedia for your company.",
   "bin": {
     "garden": "./dist/cli.js"
   },
   "scripts": {
-    "build": "tsc && cp -r src/connectors dist/connectors",
+    "build": "tsc && mkdir -p dist/connectors && cp src/connectors/*.mjs dist/connectors/",
     "dev": "tsc --watch",
     "start": "node dist/cli.js"
   },
