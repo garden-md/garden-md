@@ -11,15 +11,21 @@ export async function callAI(config: GardenConfig, systemPrompt: string, userPro
 
   if (provider === 'anthropic') {
     const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
-      model,
-      max_tokens: 8192,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    });
-    const block = response.content[0];
-    if (block.type === 'text') return block.text;
-    throw new Error('Unexpected response type from Anthropic');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120_000); // 2 min timeout
+    try {
+      const response = await client.messages.create({
+        model,
+        max_tokens: 8192,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }, { signal: controller.signal as any });
+      const block = response.content[0];
+      if (block.type === 'text') return block.text;
+      throw new Error('Unexpected response type from Anthropic');
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   if (provider === 'openai') {

@@ -56,12 +56,12 @@ export async function tendCommand(): Promise<void> {
 
   // Progress bar
   const bar = new cliProgress.SingleBar({
-    format: '  {bar} {value}/{total}',
+    format: '  {bar} {value}/{total} | {item}',
     barCompleteChar: '█',
     barIncompleteChar: '░',
     hideCursor: true,
   });
-  bar.start(items.length, 0);
+  bar.start(items.length, 0, { item: '' });
 
   let pagesCreated = 0;
   let pagesUpdated = 0;
@@ -72,14 +72,36 @@ export async function tendCommand(): Promise<void> {
     const itemPath = path.join(wildlandPath, items[i]);
     const content = fs.readFileSync(itemPath, 'utf-8');
 
+    bar.update({ item: items[i].slice(0, 40) });
+
+    // Skip very short files (likely metadata-only)
+    if (content.trim().length < 50) {
+      bar.increment();
+      continue;
+    }
+
     try {
-      // Chunk long transcripts (rough estimate: 4 chars ≈ 1 token, limit ~25k tokens)
-      const MAX_CHARS = 100000;
+      // Smart truncation: for Grain files with ## Transcript section,
+      // keep summary/notes but trim the raw transcript to save tokens
+      const MAX_CHARS = 50000;
+      let processContent = content;
+      if (processContent.length > MAX_CHARS) {
+        const transcriptIdx = processContent.indexOf('## Transcript');
+        if (transcriptIdx > 0 && transcriptIdx < MAX_CHARS) {
+          // Keep everything before transcript + first 10K of transcript
+          const beforeTranscript = processContent.slice(0, transcriptIdx);
+          const transcript = processContent.slice(transcriptIdx, transcriptIdx + 10000);
+          processContent = beforeTranscript + transcript + '\n\n(transcript truncated)';
+        } else {
+          processContent = processContent.slice(0, MAX_CHARS);
+        }
+      }
+
       let result: TendResult;
-      if (content.length > MAX_CHARS) {
-        result = await processLongItem(config, content, wikiIndex, wikiPath, MAX_CHARS);
+      if (processContent.length > MAX_CHARS) {
+        result = await processLongItem(config, processContent, wikiIndex, wikiPath, MAX_CHARS);
       } else {
-        result = await processItem(config, content, wikiIndex, wikiPath);
+        result = await processItem(config, processContent, wikiIndex, wikiPath);
       }
 
       // Write the linked transcript to Meetings/
