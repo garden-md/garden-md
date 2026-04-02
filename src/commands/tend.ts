@@ -37,6 +37,11 @@ export async function tendCommand(): Promise<void> {
     return;
   }
 
+  // Ensure all wiki folders exist
+  for (const folder of config.folders) {
+    fs.mkdirSync(path.join(wikiPath, folder.name), { recursive: true });
+  }
+
   const items = fs.readdirSync(wildlandPath).filter(f => f.endsWith('.md'));
 
   if (items.length === 0) {
