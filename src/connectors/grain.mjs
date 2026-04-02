@@ -1,21 +1,18 @@
 // garden-md connector: Grain (https://grain.com)
-// Syncs meeting transcripts from Grain's public API v2.
+// Syncs meeting transcripts from Grain's public API.
 // API docs: https://developers.grain.com
 
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
 
-const API_BASE = 'https://api.grain.com/_/public-api/v2';
-const API_VERSION = '2025-10-31';
+const API_BASE = 'https://api.grain.com/_/public-api';
 
-function request(endpoint, apiKey) {
+function request(url, apiKey) {
   return new Promise((resolve, reject) => {
-    const url = `${API_BASE}${endpoint}`;
     const req = https.request(url, {
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        'Public-Api-Version': API_VERSION,
         'Accept': 'application/json',
       },
     }, (res) => {
@@ -23,11 +20,33 @@ function request(endpoint, apiKey) {
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
         if (res.statusCode >= 400) {
-          reject(new Error(`Grain API ${res.statusCode}: ${data.slice(0, 200)}`));
+          reject(new Error(`Grain API ${res.statusCode}: ${data.slice(0, 300)}`));
           return;
         }
         try { resolve(JSON.parse(data)); }
         catch { reject(new Error(`Invalid JSON from Grain: ${data.slice(0, 200)}`)); }
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+function requestText(url, apiKey) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 400) {
+          reject(new Error(`Grain API ${res.statusCode}: ${data.slice(0, 300)}`));
+          return;
+        }
+        resolve(data);
       });
     });
     req.on('error', reject);
@@ -45,43 +64,47 @@ export default async function sync({ apiKey, wildlandPath }) {
     lastSync = fs.readFileSync(syncFile, 'utf-8').trim();
   }
 
-  // Fetch recordings list
-  let endpoint = '/recordings?limit=50';
-  if (lastSync) {
-    endpoint += `&created_after=${lastSync}`;
+  // Fetch recordings list with cursor-based pagination
+  let allRecordings = [];
+  let cursor = null;
+
+  do {
+    let url = `${API_BASE}/recordings?limit=50`;
+    if (cursor) url += `&cursor=${cursor}`;
+
+    const result = await request(url, apiKey);
+    const recordings = result.recordings || [];
+    allRecordings = allRecordings.concat(recordings);
+    cursor = result.cursor || null;
+
+    // Safety cap
+    if (allRecordings.length > 500) { cursor = null; break; }
+  } while (cursor);
+
+  if (allRecordings.length === 0) {
+    console.log('  No recordings found in Grain.');
+    return;
   }
 
-  const recordings = await request(endpoint, apiKey);
-  const items = recordings.recordings || recordings.data || recordings;
+  // Filter by last sync date if available
+  if (lastSync) {
+    const lastSyncDate = new Date(lastSync);
+    allRecordings = allRecordings.filter(rec => {
+      const recDate = new Date(rec.start_datetime || rec.end_datetime || 0);
+      return recDate > lastSyncDate;
+    });
+  }
 
-  if (!Array.isArray(items) || items.length === 0) {
+  if (allRecordings.length === 0) {
     console.log('  No new recordings from Grain.');
     return;
   }
 
   let synced = 0;
-  for (const rec of items) {
+  for (const rec of allRecordings) {
     const id = rec.id;
     const title = rec.title || `Recording ${id}`;
-    const date = rec.created_at || rec.start_time || new Date().toISOString();
-
-    // Fetch transcript
-    let transcript = '';
-    try {
-      const detail = await request(`/recordings/${id}/transcript`, apiKey);
-      if (detail.transcript) {
-        transcript = Array.isArray(detail.transcript)
-          ? detail.transcript.map(t => `**${t.speaker || 'Speaker'}:** ${t.text}`).join('\n\n')
-          : String(detail.transcript);
-      } else if (detail.text) {
-        transcript = detail.text;
-      } else {
-        transcript = JSON.stringify(detail, null, 2);
-      }
-    } catch {
-      // Fall back to summary/notes if transcript unavailable
-      transcript = rec.summary || rec.notes || `(No transcript available for ${title})`;
-    }
+    const date = rec.start_datetime || rec.end_datetime || new Date().toISOString();
 
     // Sanitize filename
     const safeName = title
@@ -97,17 +120,66 @@ export default async function sync({ apiKey, wildlandPath }) {
     // Skip if already exists
     if (fs.existsSync(filepath)) continue;
 
+    // Build the content from the rich data Grain provides
+    const parts = [];
+
+    // Summary
+    if (rec.summary) {
+      parts.push(`## Summary\n\n${rec.summary}`);
+    }
+
+    // Summary points (timestamped)
+    if (rec.summary_points && rec.summary_points.length > 0) {
+      const points = rec.summary_points.map(p => `- ${p.text}`).join('\n');
+      parts.push(`## Key Points\n\n${points}`);
+    }
+
+    // Intelligence notes (Grain's AI-generated structured notes)
+    if (rec.intelligence_notes_md) {
+      parts.push(`## Notes\n\n${rec.intelligence_notes_md}`);
+    }
+
+    // Fetch full transcript via the text endpoint (simpler, cleaner)
+    try {
+      if (rec.transcript_txt_url) {
+        const transcriptText = await requestText(rec.transcript_txt_url, apiKey);
+        if (transcriptText && transcriptText.trim().length > 0) {
+          parts.push(`## Transcript\n\n${transcriptText.trim()}`);
+        }
+      }
+    } catch {
+      // Fall back to JSON transcript
+      try {
+        if (rec.transcript_json_url) {
+          const segments = await request(rec.transcript_json_url, apiKey);
+          if (Array.isArray(segments) && segments.length > 0) {
+            const transcript = segments
+              .map(s => `**${s.speaker || 'Speaker'}:** ${s.text}`)
+              .join('\n\n');
+            parts.push(`## Transcript\n\n${transcript}`);
+          }
+        }
+      } catch {
+        // No transcript available
+      }
+    }
+
+    const duration = rec.duration_ms ? Math.round(rec.duration_ms / 60000) : null;
+    const owners = rec.owners ? rec.owners.join(', ') : '';
+
     const content = `---
 source: grain
 date: ${date}
 title: "${title.replace(/"/g, '\\"')}"
 type: transcript
 grain_id: ${id}
+${duration ? `duration_min: ${duration}` : ''}
+${owners ? `owners: "${owners}"` : ''}
 ---
 
 # ${title}
 
-${transcript}
+${parts.join('\n\n---\n\n')}
 `;
 
     fs.writeFileSync(filepath, content, 'utf-8');
