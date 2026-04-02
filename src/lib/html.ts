@@ -128,6 +128,13 @@ export async function generateHtml(
 ): Promise<void> {
   fs.mkdirSync(htmlPath, { recursive: true });
 
+  // Load metadata sidecar for proper display names
+  let meta: Record<string, { title: string }> = {};
+  const metaPath = path.join(wikiPath, '.garden-meta.json');
+  if (fs.existsSync(metaPath)) {
+    try { meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8')); } catch { /* ignore */ }
+  }
+
   // Collect all pages
   const allPages: { name: string; folder: string; file: string; mdPath: string }[] = [];
 
@@ -144,8 +151,10 @@ export async function generateHtml(
 
     const files = fs.readdirSync(folderPath).filter(f => f.endsWith('.md'));
     for (const file of files) {
+      const key = `${folder.name}/${file}`;
+      const displayName = meta[key]?.title || file.replace('.md', '').replace(/-/g, ' ');
       allPages.push({
-        name: file.replace('.md', '').replace(/-/g, ' '),
+        name: displayName,
         folder: folder.name,
         file,
         mdPath: path.join(folderPath, file),

@@ -10,13 +10,19 @@ import { configCommand } from './commands/config.js';
 import { disconnectCommand } from './commands/disconnect.js';
 import { uninstallCommand } from './commands/uninstall.js';
 import { addCommand, removeCommand, renameCommand, listCommand } from './commands/folders.js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __cliDir = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(join(__cliDir, '..', 'package.json'), 'utf-8'));
 
 const program = new Command();
 
 program
   .name('garden')
   .description('Turn your meeting transcripts into a Wikipedia for your company.')
-  .version('0.1.0');
+  .version(pkg.version);
 
 program
   .command('init')

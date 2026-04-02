@@ -17,7 +17,7 @@ export async function uninstallCommand(): Promise<void> {
 
   // Remove cron entries
   try {
-    const { execFileSync } = require('child_process');
+    const { execFileSync } = await import('child_process');
     const existing = execFileSync('crontab', ['-l'], { encoding: 'utf-8' });
     const filtered = existing.split('\n').filter((l: string) => !l.includes('garden sync')).join('\n');
     execFileSync('crontab', ['-'], { input: filtered });

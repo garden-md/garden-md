@@ -48,7 +48,7 @@ export async function tendCommand(): Promise<void> {
     return;
   }
 
-  console.log(chalk.green(`\n🌿 Processing ${items.length} items...\n`));
+  console.log(chalk.green(`\n🌿 Gardening ${items.length} items...\n`));
 
   // Build wiki index (existing pages)
   const wikiIndex = buildWikiIndex(wikiPath, config.folders.map(f => f.name));
@@ -74,8 +74,13 @@ export async function tendCommand(): Promise<void> {
     const itemName = items[i].slice(0, 40);
     bar.update({ item: itemName });
 
-    // Skip very short files (likely metadata-only)
-    if (content.trim().length < 50) {
+    // Skip very short files (likely metadata-only) — strip frontmatter before checking
+    let bodyContent = content;
+    const fmMatch = content.match(/^---\s*\n[\s\S]*?\n---\s*\n/);
+    if (fmMatch) {
+      bodyContent = content.slice(fmMatch[0].length);
+    }
+    if (bodyContent.trim().length < 50) {
       bar.increment();
       continue;
     }
@@ -187,16 +192,40 @@ export async function tendCommand(): Promise<void> {
 
   bar.stop();
 
+  // Save metadata sidecar (maps filenames to proper titles)
+  const metaPath = path.join(wikiPath, '.garden-meta.json');
+  let meta: Record<string, { title: string; type: string; date?: string }> = {};
+  if (fs.existsSync(metaPath)) {
+    try { meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8')); } catch { /* fresh start */ }
+  }
+  // Scan all pages for titles from their H1
+  for (const folder of config.folders) {
+    const folderPath = path.join(wikiPath, folder.name);
+    if (!fs.existsSync(folderPath)) continue;
+    for (const file of fs.readdirSync(folderPath).filter(f => f.endsWith('.md'))) {
+      const key = `${folder.name}/${file}`;
+      if (!meta[key]) {
+        const content = fs.readFileSync(path.join(folderPath, file), 'utf-8');
+        const h1Match = content.match(/^#\s+(.+)$/m);
+        meta[key] = {
+          title: h1Match ? h1Match[1].trim() : file.replace('.md', '').replace(/-/g, ' '),
+          type: folder.name.toLowerCase(),
+        };
+      }
+    }
+  }
+  fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8');
+
   // Update Index.md
-  updateIndex(wikiPath, config.folders.map(f => f.name));
+  updateIndex(wikiPath, config.folders.map(f => f.name), meta);
 
   // Generate HTML
   const spinner = chalk.dim('  Generating HTML...');
   console.log(spinner);
   await generateHtml(wikiPath, htmlPath, config.folders);
 
-  // Git commit
-  if (config.git.enabled && config.git.autoCommit) {
+  // Git commit (only if there were actual changes)
+  if (config.git.enabled && config.git.autoCommit && (pagesCreated > 0 || pagesUpdated > 0)) {
     try {
       execSync('git add .', { cwd: wikiPath, stdio: 'ignore' });
       execSync(
@@ -266,8 +295,10 @@ Respond with JSON:
 Do NOT include the original text in your response. Only return the JSON with title, date, and entities array.
 
 Rules:
-- Only extract named people, companies, and products/tools
-- Do NOT include dates, generic nouns, or vague references
+- Only extract named people, companies/organizations, and products YOUR COMPANY is building
+- Do NOT extract generic tools, frameworks, programming languages, or libraries (e.g. React, Python, Postgres, Express, TypeScript, scikit-learn, PyTorch)
+- Do NOT extract well-known SaaS platforms unless they are a business partner or competitor discussed substantively (e.g. skip "deployed on AWS", keep "evaluating Bland AI as competitor")
+- Do NOT include dates, generic nouns, algorithms, or vague references
 - If unsure whether something is an entity, don't include it
 - Entity names must match exactly how they appear in the text
 - Use existing page paths when they exist`;
@@ -355,7 +386,7 @@ function buildWikiIndex(wikiPath: string, folders: string[]): WikiPage[] {
   return pages;
 }
 
-function updateIndex(wikiPath: string, folders: string[]): void {
+function updateIndex(wikiPath: string, folders: string[], meta?: Record<string, { title: string }>): void {
   let recentActivity = '';
 
   // Get recent files from Meetings/
@@ -363,11 +394,15 @@ function updateIndex(wikiPath: string, folders: string[]): void {
   if (fs.existsSync(meetingsPath)) {
     const meetings = fs.readdirSync(meetingsPath)
       .filter(f => f.endsWith('.md'))
-      .map(f => ({
-        name: f.replace('.md', '').replace(/-/g, ' '),
-        file: f,
-        mtime: fs.statSync(path.join(meetingsPath, f)).mtime,
-      }))
+      .map(f => {
+        const key = `Meetings/${f}`;
+        const displayName = meta?.[key]?.title || f.replace('.md', '').replace(/-/g, ' ');
+        return {
+          name: displayName,
+          file: f,
+          mtime: fs.statSync(path.join(meetingsPath, f)).mtime,
+        };
+      })
       .sort((a, b) => b.mtime.getTime() - a.mtime.getTime())
       .slice(0, 10);
 
@@ -402,9 +437,11 @@ function sanitizeFilename(name: string): string {
   return name
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '') // strip diacritics (é→e, è→e, ñ→n)
+    .replace(/:/g, '-')             // colons to hyphens (1:1 → 1-1, not 11)
     .replace(/[^a-zA-Z0-9\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-')
+    .replace(/-{2,}/g, '-')         // collapse multiple hyphens
     .toLowerCase()
     + '.md';
 }

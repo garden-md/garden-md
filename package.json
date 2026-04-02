@@ -1,6 +1,6 @@
 {
   "name": "garden-md",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Turn your meeting transcripts into a Wikipedia for your company.",
   "bin": {
     "garden": "./dist/cli.js"

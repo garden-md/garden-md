@@ -17,7 +17,7 @@ export const tokenUsage = { input: 0, output: 0 };
 
 // Fast/cheap models for simple tasks like entity extraction
 export const FAST_MODELS: Record<string, string> = {
-  anthropic: 'claude-haiku-4-20250414',
+  anthropic: 'claude-haiku-4-5-20251001',
   openai: 'gpt-4o-mini',
   gemini: 'gemini-2.0-flash',
   ollama: '', // keep user's choice
@@ -34,8 +34,16 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 export async function callAI(config: GardenConfig, systemPrompt: string, userPrompt: string, modelOverride?: string): Promise<string> {
-  const { provider, apiKey } = config.ai;
+  const { provider } = config.ai;
   const model = modelOverride || config.ai.model;
+
+  // Fall back to environment variable if config apiKey is not set
+  const envKeys: Record<string, string | undefined> = {
+    anthropic: process.env.ANTHROPIC_API_KEY,
+    openai: process.env.OPENAI_API_KEY,
+    gemini: process.env.GEMINI_API_KEY,
+  };
+  const apiKey = config.ai.apiKey || envKeys[provider];
 
   if (provider === 'anthropic') {
     const client = new Anthropic({ apiKey });
