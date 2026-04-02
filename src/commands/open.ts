@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import express from 'express';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import net from 'net';
 import { loadConfig, resolveHtmlPath } from '../lib/config.js';
 
@@ -31,11 +31,11 @@ export async function openCommand(): Promise<void> {
     try {
       const platform = process.platform;
       if (platform === 'darwin') {
-        execSync(`open ${url}`);
+        execFileSync('open', [url]);
       } else if (platform === 'linux') {
-        execSync(`xdg-open ${url} 2>/dev/null || true`);
+        execFileSync('xdg-open', [url]);
       } else if (platform === 'win32') {
-        execSync(`start ${url}`);
+        execFileSync('cmd', ['/c', 'start', url]);
       }
     } catch {
       // Can't open browser — that's fine, URL is printed

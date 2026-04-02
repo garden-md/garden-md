@@ -72,7 +72,7 @@ export function saveConfig(config: GardenConfig): void {
   if (!fs.existsSync(CONFIG_DIR)) {
     fs.mkdirSync(CONFIG_DIR, { recursive: true });
   }
-  fs.writeFileSync(CONFIG_PATH, stringifyYaml(config), 'utf-8');
+  fs.writeFileSync(CONFIG_PATH, stringifyYaml(config), { encoding: 'utf-8', mode: 0o600 });
 }
 
 export function resolveWikiPath(config: GardenConfig): string {

@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+
 import { loadConfig, getConfigDir, resolveWildlandPath } from '../lib/config.js';
 
 export async function syncCommand(options: { schedule?: boolean; unschedule?: boolean }): Promise<void> {
@@ -69,14 +69,15 @@ export async function syncCommand(options: { schedule?: boolean; unschedule?: bo
   }
 }
 
-function scheduleSync(config: any): void {
+async function scheduleSync(config: any): Promise<void> {
   const gardenBin = process.argv[1];
   const cronLine = `${config.schedule.sync} ${process.execPath} ${gardenBin} sync >> ~/.garden/logs/cron.log 2>&1`;
 
   try {
     let existing = '';
     try {
-      existing = execSync('crontab -l 2>/dev/null', { encoding: 'utf-8' });
+      const { execFileSync: efs } = await import('child_process');
+      existing = efs('crontab', ['-l'], { encoding: 'utf-8' });
     } catch { /* no crontab */ }
 
     // Remove old garden entries
@@ -87,7 +88,8 @@ function scheduleSync(config: any): void {
     const logDir = path.join(getConfigDir(), 'logs');
     fs.mkdirSync(logDir, { recursive: true });
 
-    execSync(`echo ${JSON.stringify(newCrontab)} | crontab -`);
+    const { execFileSync } = await import('child_process');
+    execFileSync('crontab', ['-'], { input: newCrontab });
     console.log(chalk.green(`\n✓ Cron scheduled: ${config.schedule.sync}`));
     console.log(chalk.dim(`  ${cronLine}\n`));
   } catch (err: any) {
@@ -97,9 +99,10 @@ function scheduleSync(config: any): void {
 
 function unscheduleSync(): void {
   try {
-    const existing = execSync('crontab -l 2>/dev/null', { encoding: 'utf-8' });
-    const filtered = existing.split('\n').filter(l => !l.includes('garden sync')).join('\n');
-    execSync(`echo ${JSON.stringify(filtered)} | crontab -`);
+    const { execFileSync } = require('child_process');
+    const existing = execFileSync('crontab', ['-l'], { encoding: 'utf-8' });
+    const filtered = existing.split('\n').filter((l: string) => !l.includes('garden sync')).join('\n');
+    execFileSync('crontab', ['-'], { input: filtered });
     console.log(chalk.green('\n✓ Cron entries removed.\n'));
   } catch {
     console.log(chalk.dim('No crontab entries to remove.'));

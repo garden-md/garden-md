@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { execSync } from 'child_process';
+
 import { getConfigDir, getConfigPath, loadConfig } from '../lib/config.js';
 
 export async function uninstallCommand(): Promise<void> {
@@ -17,9 +17,10 @@ export async function uninstallCommand(): Promise<void> {
 
   // Remove cron entries
   try {
-    const existing = execSync('crontab -l 2>/dev/null', { encoding: 'utf-8' });
-    const filtered = existing.split('\n').filter(l => !l.includes('garden sync')).join('\n');
-    execSync(`echo ${JSON.stringify(filtered)} | crontab -`);
+    const { execFileSync } = require('child_process');
+    const existing = execFileSync('crontab', ['-l'], { encoding: 'utf-8' });
+    const filtered = existing.split('\n').filter((l: string) => !l.includes('garden sync')).join('\n');
+    execFileSync('crontab', ['-'], { input: filtered });
     console.log(chalk.green('  ✓ Removed cron entries'));
   } catch {
     console.log(chalk.dim('  ✓ No cron entries to remove'));

@@ -68,9 +68,9 @@ export async function callAI(config: GardenConfig, systemPrompt: string, userPro
   }
 
   if (provider === 'claude-cli') {
-    const { execSync } = await import('child_process');
+    const { execFileSync } = await import('child_process');
     const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
-    const result = execSync(`echo ${JSON.stringify(fullPrompt)} | claude --print`, {
+    const result = execFileSync('claude', ['--print', fullPrompt], {
       encoding: 'utf-8',
       maxBuffer: 10 * 1024 * 1024,
     });
