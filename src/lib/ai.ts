@@ -6,6 +6,15 @@ export interface AIResponse {
   text: string;
 }
 
+export interface AIResult {
+  text: string;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+// Global token counter for the current session
+export const tokenUsage = { input: 0, output: 0 };
+
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
     promise,
@@ -30,6 +39,8 @@ export async function callAI(config: GardenConfig, systemPrompt: string, userPro
       120_000,
       `Anthropic ${model}`
     );
+    tokenUsage.input += response.usage?.input_tokens || 0;
+    tokenUsage.output += response.usage?.output_tokens || 0;
     const block = response.content[0];
     if (block.type === 'text') return block.text;
     throw new Error('Unexpected response type from Anthropic');
@@ -45,11 +56,12 @@ export async function callAI(config: GardenConfig, systemPrompt: string, userPro
         { role: 'user', content: userPrompt },
       ],
     });
+    tokenUsage.input += response.usage?.prompt_tokens || 0;
+    tokenUsage.output += response.usage?.completion_tokens || 0;
     return response.choices[0]?.message?.content || '';
   }
 
   if (provider === 'gemini') {
-    // Gemini uses OpenAI-compatible API
     const client = new OpenAI({
       apiKey,
       baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
@@ -62,6 +74,8 @@ export async function callAI(config: GardenConfig, systemPrompt: string, userPro
         { role: 'user', content: userPrompt },
       ],
     });
+    tokenUsage.input += response.usage?.prompt_tokens || 0;
+    tokenUsage.output += response.usage?.completion_tokens || 0;
     return response.choices[0]?.message?.content || '';
   }
 

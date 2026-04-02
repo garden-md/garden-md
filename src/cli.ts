@@ -7,6 +7,7 @@ import { syncCommand } from './commands/sync.js';
 import { tendCommand } from './commands/tend.js';
 import { openCommand } from './commands/open.js';
 import { configCommand } from './commands/config.js';
+import { disconnectCommand } from './commands/disconnect.js';
 import { uninstallCommand } from './commands/uninstall.js';
 import { addCommand, removeCommand, renameCommand, listCommand } from './commands/folders.js';
 
@@ -27,6 +28,11 @@ program
   .description('Connect a data source')
   .option('--repair', 'Repair a broken connector')
   .action(connectCommand);
+
+program
+  .command('disconnect')
+  .description('Remove a connected data source')
+  .action(disconnectCommand);
 
 program
   .command('sync')

@@ -4,7 +4,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import cliProgress from 'cli-progress';
 import { loadConfig, resolveWikiPath, resolveWildlandPath, resolveHtmlPath } from '../lib/config.js';
-import { callAIJson } from '../lib/ai.js';
+import { callAIJson, tokenUsage } from '../lib/ai.js';
 import { generateHtml } from '../lib/html.js';
 
 interface TendEntity {
@@ -208,8 +208,16 @@ export async function tendCommand(): Promise<void> {
     }
   }
 
-  console.log(chalk.green(`\n✓ Done. ${pagesCreated} pages created, ${pagesUpdated} updated, ${entitiesFound} entities found.\n`));
-  console.log(`  Run ${chalk.bold('garden open')} to browse your wiki.\n`);
+  console.log(chalk.green(`\n✓ Done. ${pagesCreated} pages created, ${pagesUpdated} updated, ${entitiesFound} entities found.`));
+  
+  if (tokenUsage.input > 0 || tokenUsage.output > 0) {
+    const totalTokens = tokenUsage.input + tokenUsage.output;
+    // Rough cost estimate (Sonnet: $3/M input, $15/M output)
+    const costEstimate = (tokenUsage.input * 3 + tokenUsage.output * 15) / 1_000_000;
+    console.log(chalk.dim(`  Tokens: ${tokenUsage.input.toLocaleString()} in + ${tokenUsage.output.toLocaleString()} out = ${totalTokens.toLocaleString()} total (~$${costEstimate.toFixed(2)})`));
+  }
+  
+  console.log(`\n  Run ${chalk.bold('garden open')} to browse your wiki.\n`);
 }
 
 async function processItem(
