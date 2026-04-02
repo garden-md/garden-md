@@ -16,7 +16,6 @@ interface TendEntity {
 
 interface TendResult {
   entities: TendEntity[];
-  linkedText: string;
   title: string;
   date: string;
 }
@@ -253,15 +252,16 @@ Respond with JSON:
   "date": "ISO date if found in content, or today's date",
   "entities": [
     { "name": "Entity Name", "type": "person|company|product", "folder": "People|Companies|Products", "existingPage": "People/Entity-Name.md or null if new" }
-  ],
-  "linkedText": "the full original text with markdown links inserted"
+  ]
 }
 
+Do NOT include the original text in your response. Only return the JSON with title, date, and entities array.
+
 Rules:
-- Only link named people, companies, and products/tools
-- Do NOT link dates, generic nouns, or vague references
-- If unsure whether something is an entity, don't link it
-- Keep the original text EXACTLY as-is — only insert [links](paths)
+- Only extract named people, companies, and products/tools
+- Do NOT include dates, generic nouns, or vague references
+- If unsure whether something is an entity, don't include it
+- Entity names must match exactly how they appear in the text
 - Use existing page paths when they exist`;
 
   return await callAIJson<TendResult>(config, systemPrompt, content);
@@ -291,7 +291,6 @@ async function processLongItem(
 
   // Process each chunk, merge results
   const allEntities: TendEntity[] = [];
-  const linkedChunks: string[] = [];
   let title = '';
   let date = '';
 
@@ -299,7 +298,6 @@ async function processLongItem(
     const result = await processItem(config, chunk, wikiIndex, wikiPath);
     if (!title) title = result.title;
     if (!date) date = result.date;
-    linkedChunks.push(result.linkedText);
 
     for (const entity of result.entities) {
       if (!allEntities.find(e => e.name === entity.name)) {
@@ -318,7 +316,6 @@ async function processLongItem(
     title,
     date,
     entities: allEntities,
-    linkedText: linkedChunks.join('\n\n'),
   };
 }
 
