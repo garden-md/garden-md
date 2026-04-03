@@ -148,31 +148,100 @@ ${config.folders.map(f => `- **${f.name}/** — ${f.desc}`).join('\n')}
     }
   }
 
-  // Wire CLAUDE.md
-  const claudeMdPath = path.join(os.homedir(), '.claude', 'CLAUDE.md');
-  const claudeSection = `
-## Garden Wiki
+  // Wire AI agent context files
+  const wikiSection = `
+## Garden Wiki — Company Knowledge Base
 
-Your company wiki is at ${config.wiki.path}. It contains structured knowledge extracted from meeting transcripts and other sources.
+Your company wiki is at ${config.wiki.path}. It contains structured knowledge extracted from meeting transcripts. **Read relevant wiki pages before answering questions about people, companies, meetings, decisions, or products.**
 
-- Browse folders: ${config.folders.map(f => f.name).join(', ')}
-- Read any .md file for context about people, companies, meetings, decisions, and products
-- Manage structure with: \`garden add\`, \`garden remove\`, \`garden rename\`, \`garden list\`
-- The wiki is auto-updated by \`garden tend\` — you don't need to maintain it manually
+### How to use it
+- **Asked about a person?** → Read ${config.wiki.path}/People/<name>.md first
+- **Asked about a company/org?** → Read ${config.wiki.path}/Companies/<name>.md first
+- **Need meeting context?** → Check ${config.wiki.path}/Meetings/ for recent transcripts
+- **Drafting comms?** → Read the relevant People + Meetings pages for latest context
+- **Product questions?** → Read ${config.wiki.path}/Products/<name>.md
+
+### Folders
+${config.folders.map(f => `- **${config.wiki.path}/${f.name}/** — ${f.desc}`).join('\n')}
+
+The wiki is auto-updated by \`garden sync && garden tend\`. You don't maintain it manually.
 `;
 
-  try {
-    const claudeDir = path.dirname(claudeMdPath);
-    fs.mkdirSync(claudeDir, { recursive: true });
-    let existing = '';
-    if (fs.existsSync(claudeMdPath)) {
-      existing = fs.readFileSync(claudeMdPath, 'utf-8');
+  // Step 5: Wire to AI coding agents
+  console.log(chalk.bold('Step 5: AI Agent Wiring\n'));
+
+  const agentTargets = [
+    {
+      name: 'Claude Code',
+      id: 'claude',
+      path: path.join(os.homedir(), '.claude', 'CLAUDE.md'),
+      marker: '## Garden Wiki',
+    },
+    {
+      name: 'OpenAI Codex',
+      id: 'codex',
+      path: path.join(os.homedir(), 'AGENTS.md'),
+      marker: '## Garden Wiki',
+    },
+    {
+      name: 'Cursor',
+      id: 'cursor',
+      path: path.join(os.homedir(), '.cursorrules'),
+      marker: '## Garden Wiki',
+    },
+    {
+      name: 'Windsurf',
+      id: 'windsurf',
+      path: path.join(os.homedir(), '.windsurfrules'),
+      marker: '## Garden Wiki',
+    },
+  ];
+
+  // Detect which ones exist on disk
+  const detected = agentTargets.filter(t => {
+    try {
+      // Check if parent dir exists or the file already exists
+      return fs.existsSync(path.dirname(t.path)) || fs.existsSync(t.path);
+    } catch { return false; }
+  });
+
+  if (detected.length > 0) {
+    console.log(chalk.dim('Detected agent config files:'));
+    detected.forEach(t => console.log(`  ${chalk.green('✓')} ${t.name} (${t.path})`));
+    console.log();
+  }
+
+  const wireAgents = await confirm({
+    message: `Wire wiki into AI agent configs? (${detected.map(d => d.name).join(', ') || 'none detected — will create files'})`,
+    default: true,
+  });
+
+  if (wireAgents) {
+    let wired = 0;
+    for (const target of agentTargets) {
+      try {
+        const dir = path.dirname(target.path);
+        fs.mkdirSync(dir, { recursive: true });
+        let existing = '';
+        if (fs.existsSync(target.path)) {
+          existing = fs.readFileSync(target.path, 'utf-8');
+        }
+        if (!existing.includes(target.marker)) {
+          fs.appendFileSync(target.path, '\n' + wikiSection, 'utf-8');
+          console.log(chalk.green(`  ✓ ${target.name}`));
+          wired++;
+        } else {
+          console.log(chalk.dim(`  ✓ ${target.name} (already wired)`));
+        }
+      } catch {
+        console.log(chalk.dim(`  ✗ ${target.name} — could not write`));
+      }
     }
-    if (!existing.includes('## Garden Wiki')) {
-      fs.appendFileSync(claudeMdPath, '\n' + claudeSection, 'utf-8');
+    if (wired > 0) {
+      console.log(chalk.dim(`\n  Your AI agents now have access to your company wiki.\n`));
     }
-  } catch {
-    console.log(chalk.dim('Could not wire ~/.claude/CLAUDE.md — you can add it manually.'));
+  } else {
+    console.log(chalk.dim('\n  Skipped. You can wire manually later — see README.\n'));
   }
 
   // Save config

@@ -199,11 +199,22 @@ garden-md turns those recordings into structured markdown that agents can read n
 
 ### How Agents Use It
 
-**Claude Code / CLAUDE.md** — `garden init` automatically wires your wiki into `~/.claude/CLAUDE.md`. Claude Code sees your entire company knowledge base in every session. Ask it "what's the status of the Acme deal?" and it has the answer from your last three meetings with them.
+### Auto-Wiring (Step 5 of `garden init`)
 
-**Cursor / Windsurf** — Add your wiki folder to the project. The AI assistant instantly has context about your team, decisions, and product history when writing code.
+During setup, garden-md detects which AI coding agents you have and wires them automatically:
 
-**Any agent with file access** — The wiki is just folders of markdown. Point any agent at `~/wiki/` and it gains your company's institutional memory.
+| Agent | Config file | Auto-wired |
+|-------|------------|------------|
+| **Claude Code** | `~/.claude/CLAUDE.md` | ✅ |
+| **OpenAI Codex** | `~/AGENTS.md` | ✅ |
+| **Cursor** | `~/.cursorrules` | ✅ |
+| **Windsurf** | `~/.windsurfrules` | ✅ |
+
+The wired instructions tell the agent: *"Before answering questions about people, companies, or meetings — read the relevant wiki page first."* Not a vague pointer. Explicit behavior: asked about Sarah? Read `People/sarah-chen.md`. Drafting an email? Check recent `Meetings/` for context.
+
+`garden uninstall` cleanly removes the section from all four files.
+
+**Any other agent with file access** — The wiki is just folders of markdown. Point any agent at `~/wiki/` and it gains your company's institutional memory. No plugins, no integrations.
 
 ### What This Looks Like in Practice
 

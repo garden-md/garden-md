@@ -26,18 +26,27 @@ export async function uninstallCommand(): Promise<void> {
     console.log(chalk.dim('  ✓ No cron entries to remove'));
   }
 
-  // Remove CLAUDE.md garden section
-  const claudeMdPath = path.join(os.homedir(), '.claude', 'CLAUDE.md');
-  try {
-    if (fs.existsSync(claudeMdPath)) {
-      let content = fs.readFileSync(claudeMdPath, 'utf-8');
-      // Remove the garden section
-      content = content.replace(/\n## Garden Wiki[\s\S]*?(?=\n## |\n$|$)/, '');
-      fs.writeFileSync(claudeMdPath, content.trim() + '\n', 'utf-8');
-      console.log(chalk.green('  ✓ Removed garden section from ~/.claude/CLAUDE.md'));
+  // Remove garden section from all AI agent config files
+  const agentFiles = [
+    { name: 'Claude Code', path: path.join(os.homedir(), '.claude', 'CLAUDE.md') },
+    { name: 'Codex', path: path.join(os.homedir(), 'AGENTS.md') },
+    { name: 'Cursor', path: path.join(os.homedir(), '.cursorrules') },
+    { name: 'Windsurf', path: path.join(os.homedir(), '.windsurfrules') },
+  ];
+
+  for (const agent of agentFiles) {
+    try {
+      if (fs.existsSync(agent.path)) {
+        let content = fs.readFileSync(agent.path, 'utf-8');
+        if (content.includes('## Garden Wiki')) {
+          content = content.replace(/\n## Garden Wiki[\s\S]*?(?=\n## |\n$|$)/, '');
+          fs.writeFileSync(agent.path, content.trim() + '\n', 'utf-8');
+          console.log(chalk.green(`  ✓ Removed garden section from ${agent.name}`));
+        }
+      }
+    } catch {
+      // skip
     }
-  } catch {
-    console.log(chalk.dim('  ✓ No CLAUDE.md changes needed'));
   }
 
   // Remove config directory
