@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import chalk from 'chalk';
 import { initCommand } from './commands/init.js';
 import { connectCommand } from './commands/connect.js';
 import { syncCommand } from './commands/sync.js';
@@ -93,4 +94,11 @@ program
   .description('Check wiki health — broken links, orphans, stale pages')
   .action(auditCommand);
 
-program.parse();
+program.parseAsync().catch((err: Error) => {
+  if (err.message?.includes('not initialized')) {
+    console.error(chalk.red(`\n✗ ${err.message}\n`));
+  } else {
+    console.error(chalk.red(`\n✗ ${err.message || err}\n`));
+  }
+  process.exit(1);
+});

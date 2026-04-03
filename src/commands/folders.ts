@@ -3,7 +3,22 @@ import fs from 'fs';
 import path from 'path';
 import { loadConfig, saveConfig, resolveWikiPath } from '../lib/config.js';
 
+function validateFolderName(name: string): string | null {
+  if (!name || !name.trim()) return 'Folder name cannot be empty.';
+  if (/[\/\\]/.test(name)) return 'Folder name cannot contain slashes.';
+  if (/^\.\.?$/.test(name.trim())) return 'Folder name cannot be "." or "..".';
+  if (/\.\./.test(name)) return 'Folder name cannot contain path traversal ("..").';
+  if (name.length > 100) return 'Folder name is too long (max 100 chars).';
+  return null;
+}
+
 export async function addCommand(folder: string): Promise<void> {
+  const validationError = validateFolderName(folder);
+  if (validationError) {
+    console.log(chalk.red(`\n✗ ${validationError}\n`));
+    process.exit(1);
+  }
+
   const config = loadConfig();
   const wikiPath = resolveWikiPath(config);
 
@@ -52,6 +67,12 @@ export async function removeCommand(folder: string): Promise<void> {
 }
 
 export async function renameCommand(from: string, to: string): Promise<void> {
+  const validationError = validateFolderName(to);
+  if (validationError) {
+    console.log(chalk.red(`\n✗ ${validationError}\n`));
+    process.exit(1);
+  }
+
   const config = loadConfig();
   const wikiPath = resolveWikiPath(config);
 

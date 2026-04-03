@@ -638,10 +638,11 @@ function renderPage(
     </div>`;
   }
 
+  const escapedFolder = activeFolder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const processedSidebar = sidebar.replace(
-    new RegExp(`data-folder="${activeFolder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`),
-    `data-folder="${activeFolder}" class="nav-link active"`
-  ).replace('class="nav-link" data-folder="" class="nav-link active"', 'class="nav-link active" data-folder=""');
+    new RegExp(`class="nav-link" data-folder="${escapedFolder}"`),
+    `class="nav-link active" data-folder="${activeFolder}"`
+  );
 
   return `<!DOCTYPE html>
 <html lang="en">
