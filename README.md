@@ -4,6 +4,8 @@ Turn your meeting transcripts into a Wikipedia for your company.
 
 Five commands. Under 2 minutes. Your scattered transcripts become a structured, linked, browsable company wiki — all local markdown files, no cloud, no subscription.
 
+*Built by the [Basalt](https://basalt.company) team. We built garden-md for our own AI agents and it changed how we work — so we open-sourced it.*
+
 ## Install
 
 ```bash
