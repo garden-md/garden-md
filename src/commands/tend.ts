@@ -9,7 +9,7 @@ import { generateHtml } from '../lib/html.js';
 
 interface TendEntity {
   name: string;
-  type: 'person' | 'company' | 'product';
+  type: 'person' | 'company';
   folder: string;
   existingPage: string | null;
   relevance: number; // 1-5: 1=passing mention, 3=discussed, 5=central topic
@@ -161,7 +161,7 @@ export async function tendCommand(): Promise<void> {
         } else if (!fs.existsSync(entityPath)) {
           // Create enriched stub page
           const contextLine = entity.context ? `\n> ${entity.context}\n` : '';
-          const typeLabel = entity.type === 'person' ? 'Person' : entity.type === 'company' ? 'Company' : 'Product';
+          const typeLabel = entity.type === 'person' ? 'Person' : 'Company';
           const stub = `# ${entity.name}\n\n**${typeLabel}**${contextLine}\n## Mentioned In\n\n- ${relevanceTag} ${meetingLink}\n`;
           fs.writeFileSync(entityPath, stub, 'utf-8');
           pagesCreated++;
@@ -291,7 +291,6 @@ ${folderList}
 
 People → People/
 Companies → Companies/
-Products/tools → Products/
 
 Existing wiki pages:
 ${indexList || '(none yet)'}
@@ -303,8 +302,8 @@ Respond with JSON:
   "entities": [
     {
       "name": "Entity Name",
-      "type": "person|company|product",
-      "folder": "People|Companies|Products",
+      "type": "person|company",
+      "folder": "People|Companies",
       "existingPage": "People/Entity-Name.md or null if new",
       "relevance": 3,
       "context": "One-line description of who/what this is"
@@ -327,8 +326,8 @@ CONTEXT: Write a one-line description useful for someone who doesn't know this e
 Do NOT include the original text in your response. Only return the JSON.
 
 Rules:
-- Only extract named people, companies/organizations, and products YOUR COMPANY is building
-- Do NOT extract generic tools, frameworks, programming languages, or libraries (e.g. React, Python, Postgres, Express, TypeScript, scikit-learn, PyTorch)
+- Only extract named people and companies/organizations
+- Do NOT extract products, tools, frameworks, programming languages, or libraries
 - Do NOT extract well-known SaaS platforms unless they are a business partner or competitor discussed substantively (e.g. skip "deployed on AWS", keep "evaluating Bland AI as competitor")
 - Do NOT include dates, generic nouns, algorithms, or vague references
 - If unsure whether something is an entity, don't include it

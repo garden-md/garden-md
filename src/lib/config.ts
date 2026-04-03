@@ -46,9 +46,6 @@ export const DEFAULT_FOLDERS: FolderConfig[] = [
   { name: 'Meetings', desc: 'Call transcripts with wiki links added' },
   { name: 'People', desc: 'Anyone mentioned — team, clients, investors, contacts' },
   { name: 'Companies', desc: 'Any organization mentioned' },
-  { name: 'Sessions', desc: 'AI chat sessions' },
-  { name: 'Decisions', desc: 'Key decisions and their rationale' },
-  { name: 'Products', desc: 'What the company is building' },
 ];
 
 export function getConfigDir(): string {
