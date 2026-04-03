@@ -2,17 +2,31 @@ import chalk from 'chalk';
 import express from 'express';
 import { execFileSync } from 'child_process';
 import net from 'net';
-import { loadConfig, resolveHtmlPath } from '../lib/config.js';
+import { loadConfig, resolveHtmlPath, resolveWikiPath } from '../lib/config.js';
+import { generateHtml } from '../lib/html.js';
 
 export async function openCommand(): Promise<void> {
   const config = loadConfig();
   const htmlPath = resolveHtmlPath(config);
+  const wikiPath = resolveWikiPath(config);
 
   const fs = await import('fs');
-  if (!fs.existsSync(htmlPath) || fs.readdirSync(htmlPath).length === 0) {
+
+  // Check if wiki has any content (markdown files in any folder)
+  const hasWikiContent = config.folders.some((f: any) => {
+    const folderPath = `${wikiPath}/${f.name}`;
+    return fs.existsSync(folderPath) && fs.readdirSync(folderPath).some((file: string) => file.endsWith('.md'));
+  });
+
+  if (!hasWikiContent) {
     console.log(chalk.yellow('\nYour wiki is empty. Run `garden sync && garden tend` first.\n'));
     return;
   }
+
+  // Always regenerate HTML from wiki to ensure it's fresh
+  console.log(chalk.dim('  Generating HTML...'));
+  fs.mkdirSync(htmlPath, { recursive: true });
+  await generateHtml(wikiPath, htmlPath, config.folders);
 
   let port = 4242;
   while (await isPortTaken(port)) {
