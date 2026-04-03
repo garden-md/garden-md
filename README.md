@@ -2,7 +2,11 @@
 
 Turn your meeting transcripts into a Wiki for your company.
 
-Hi ! We're the founders behind BasaltAI, and when we started using OpenClaw in March 26, it changed the way we work. Something truly unlocked this for us: creating a company brain that maps out every meeting, every customer, every product and people, giving Claw or Claude Code unlimited context to answer our questions. We quickly realised that Claude knew our company better than we did, and became more proficient at coding, GTM and any day to day task.
+Hi ! We're the founders behind BasaltAI, and when we started using OpenClaw in March 26, it changed the way we work. 
+
+Something truly unlocked this for us: creating a company brain that maps out every meeting, every customer, every product and people, giving Claw or Claude Code unlimited context to answer our questions. 
+
+We quickly realised that Claude knew our company better than we did, and became more proficient at coding, GTM and any day to day task.
 
 So we decided to open-source this. 
 
