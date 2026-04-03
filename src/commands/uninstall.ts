@@ -30,6 +30,8 @@ export async function uninstallCommand(): Promise<void> {
   const agentFiles = [
     { name: 'Claude Code', path: path.join(os.homedir(), '.claude', 'CLAUDE.md') },
     { name: 'Codex', path: path.join(os.homedir(), 'AGENTS.md') },
+    { name: 'OpenClaw', path: path.join(os.homedir(), '.openclaw', 'workspace', 'MEMORY.md') },
+    { name: 'OpenClaw', path: path.join(os.homedir(), '.openclaw', 'workspace', 'AGENTS.md') },
     { name: 'Cursor', path: path.join(os.homedir(), '.cursorrules') },
     { name: 'Windsurf', path: path.join(os.homedir(), '.windsurfrules') },
   ];

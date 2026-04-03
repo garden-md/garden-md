@@ -184,6 +184,18 @@ The wiki is auto-updated by \`garden sync && garden tend\`. You don't maintain i
       marker: '## Garden Wiki',
     },
     {
+      name: 'OpenClaw (MEMORY.md)',
+      id: 'openclaw-memory',
+      path: path.join(os.homedir(), '.openclaw', 'workspace', 'MEMORY.md'),
+      marker: '## Garden Wiki',
+    },
+    {
+      name: 'OpenClaw (AGENTS.md)',
+      id: 'openclaw-agents',
+      path: path.join(os.homedir(), '.openclaw', 'workspace', 'AGENTS.md'),
+      marker: '## Garden Wiki',
+    },
+    {
       name: 'Cursor',
       id: 'cursor',
       path: path.join(os.homedir(), '.cursorrules'),

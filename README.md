@@ -207,6 +207,7 @@ During setup, garden-md detects which AI coding agents you have and wires them a
 |-------|------------|------------|
 | **Claude Code** | `~/.claude/CLAUDE.md` | ✅ |
 | **OpenAI Codex** | `~/AGENTS.md` | ✅ |
+| **OpenClaw** | `~/.openclaw/workspace/MEMORY.md` + `AGENTS.md` | ✅ |
 | **Cursor** | `~/.cursorrules` | ✅ |
 | **Windsurf** | `~/.windsurfrules` | ✅ |
 
