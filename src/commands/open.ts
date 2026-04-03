@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import express from 'express';
-import { execFileSync } from 'child_process';
+import { execFileSync, exec } from 'child_process';
 import net from 'net';
 import { loadConfig, resolveHtmlPath, resolveWikiPath } from '../lib/config.js';
 import { generateHtml } from '../lib/html.js';
@@ -34,6 +34,36 @@ export async function openCommand(): Promise<void> {
   }
 
   const app = express();
+
+  // API: sync & tend, then regenerate HTML
+  let isRunning = false;
+  app.post('/api/sync-tend', async (_req, res) => {
+    if (isRunning) {
+      res.json({ ok: false, message: 'Already running…' });
+      return;
+    }
+    isRunning = true;
+    console.log(chalk.dim('  ⟳ Sync & Tend triggered from browser…'));
+
+    const gardenBin = process.argv[1]; // path to garden CLI
+
+    exec(`node ${gardenBin} sync 2>&1 && node ${gardenBin} tend 2>&1`, async (err, stdout, stderr) => {
+      const output = (stdout || '') + (stderr || '');
+      console.log(chalk.dim(output.trim().split('\n').map((l: string) => '    ' + l).join('\n')));
+
+      // Regenerate HTML
+      try {
+        const freshConfig = loadConfig();
+        await generateHtml(resolveWikiPath(freshConfig), resolveHtmlPath(freshConfig), freshConfig.folders);
+      } catch (e: any) {
+        console.log(chalk.yellow(`    HTML regen failed: ${e.message?.slice(0, 100)}`));
+      }
+
+      isRunning = false;
+      res.json({ ok: !err, message: err ? 'Sync & Tend failed' : 'Done', output: output.trim() });
+    });
+  });
+
   app.use(express.static(htmlPath));
 
   app.listen(port, () => {

@@ -376,6 +376,26 @@ body {
   .mobile-toggle { display: none; }
 }
 
+/* ── Sync button ── */
+.sync-btn {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.sync-btn:hover { background: var(--bg-warm); color: var(--text); border-color: var(--text-tertiary); }
+.sync-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.sync-btn.running { color: var(--accent); }
+.sync-btn.done { color: #34a853; border-color: #34a853; }
+.sync-btn.error { color: #ea4335; border-color: #ea4335; }
+
 /* ── Animations ── */
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -398,6 +418,30 @@ if (searchInput) {
     });
   });
 }
+// Sync & Tend button
+window.syncTend = async function(btn) {
+  btn.disabled = true;
+  btn.className = 'sync-btn running';
+  btn.textContent = 'Running…';
+  try {
+    const res = await fetch('/api/sync-tend', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      btn.className = 'sync-btn done';
+      btn.textContent = '✓ Done — reloading…';
+      setTimeout(function() { location.reload(); }, 1000);
+    } else {
+      btn.className = 'sync-btn error';
+      btn.textContent = 'Failed — retry?';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    btn.className = 'sync-btn error';
+    btn.textContent = 'Error — retry?';
+    btn.disabled = false;
+  }
+};
+
 const toggle = document.querySelector('.mobile-toggle');
 const sidebar = document.querySelector('.sidebar');
 if (toggle && sidebar) {
@@ -472,8 +516,13 @@ export async function generateHtml(
 
   const indexContent = `
     <div class="dashboard-header">
-      <h1>Wiki</h1>
-      <p>${totalPages} pages across ${folderStats.filter(f => f.count > 0).length} categories</p>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <h1>Wiki</h1>
+          <p>${totalPages} pages across ${folderStats.filter(f => f.count > 0).length} categories</p>
+        </div>
+        <button onclick="syncTend(this)" class="sync-btn">Sync &amp; Tend</button>
+      </div>
     </div>
     <div class="stats-grid">${statCardsHtml}</div>
     ${recentMeetings.length > 0 ? `
