@@ -47,7 +47,7 @@ export async function syncCommand(options: { schedule?: boolean; unschedule?: bo
 
       const mod = await import(connector.scriptPath);
       const fn = mod.default || mod.sync;
-      await fn({ apiKey, wildlandPath });
+      await fn({ apiKey, wildlandPath, initialDays: config.sync?.initialDays ?? 15 });
 
       spinner.succeed(`${connector.name}: synced`);
       logSync(connector.name, 'OK');

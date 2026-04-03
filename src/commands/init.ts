@@ -93,16 +93,35 @@ export async function initCommand(): Promise<void> {
   config.wiki.wildland = wikiPath.replace(/\/?$/, '') + '-wildland';
   config.wiki.html = wikiPath.replace(/\/?$/, '') + '-html';
 
-  // Step 3: Folder structure (fixed template, just show it)
-  console.log(chalk.bold('\nStep 3: Wiki Structure\n'));
+  // Step 3: Initial sync window
+  console.log(chalk.bold('\nStep 3: Sync Window\n'));
+
+  const syncWindow = await select({
+    message: 'How far back should the first sync go?',
+    choices: [
+      { name: 'Last 15 days (recommended — fast, low cost)', value: 15 },
+      { name: 'Last 30 days', value: 30 },
+      { name: 'Last 90 days', value: 90 },
+      { name: 'Everything (may be slow and expensive)', value: 0 },
+    ],
+  });
+  config.sync = { initialDays: syncWindow as number };
+  if (syncWindow === 0) {
+    console.log(chalk.yellow('\n  ⚠ First sync will fetch all history. This may take a while and cost more.\n'));
+  } else {
+    console.log(chalk.green(`\n✓ First sync will fetch the last ${syncWindow} days.\n`));
+  }
+
+  // Step 4: Folder structure (fixed template, just show it)
+  console.log(chalk.bold('Step 4: Wiki Structure\n'));
   console.log(chalk.dim('Default folder template:\n'));
   DEFAULT_FOLDERS.forEach(f => {
     console.log(`  ${chalk.cyan(f.name + '/')}  ${chalk.dim('— ' + f.desc)}`);
   });
   console.log(chalk.dim('\nYou can modify this anytime with `garden add`, `garden remove`, `garden rename`.\n'));
 
-  // Step 4: Git tracking
-  console.log(chalk.bold('Step 4: Git Tracking\n'));
+  // Step 5: Git tracking
+  console.log(chalk.bold('Step 5: Git Tracking\n'));
   const enableGit = await confirm({
     message: 'Enable git tracking for your wiki? (every `garden tend` auto-commits changes)',
     default: true,
@@ -167,8 +186,8 @@ ${config.folders.map(f => `- **${config.wiki.path}/${f.name}/** — ${f.desc}`).
 The wiki is auto-updated by \`garden sync && garden tend\`. You don't maintain it manually.
 `;
 
-  // Step 5: Wire to AI coding agents
-  console.log(chalk.bold('Step 5: AI Agent Wiring\n'));
+  // Step 6: Wire to AI coding agents
+  console.log(chalk.bold('Step 6: AI Agent Wiring\n'));
 
   const agentTargets = [
     {

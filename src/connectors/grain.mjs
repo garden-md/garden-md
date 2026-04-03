@@ -54,7 +54,7 @@ function requestText(url, apiKey) {
   });
 }
 
-export default async function sync({ apiKey, wildlandPath }) {
+export default async function sync({ apiKey, wildlandPath, initialDays = 15 }) {
   fs.mkdirSync(wildlandPath, { recursive: true });
 
   // Load last sync timestamp
@@ -62,7 +62,12 @@ export default async function sync({ apiKey, wildlandPath }) {
   let lastSync = null;
   if (fs.existsSync(syncFile)) {
     lastSync = fs.readFileSync(syncFile, 'utf-8').trim();
+  } else if (initialDays > 0) {
+    // First sync — only go back initialDays
+    const cutoff = new Date(Date.now() - initialDays * 86400000);
+    lastSync = cutoff.toISOString();
   }
+  // If initialDays is 0 and no syncFile, lastSync stays null → fetch everything
 
   // Fetch recordings list with cursor-based pagination
   let allRecordings = [];

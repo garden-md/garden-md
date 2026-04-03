@@ -94,7 +94,7 @@ async function connectBuiltin(config: any, connector: BuiltinConnector): Promise
   try {
     const mod = await import(destScript);
     const fn = mod.default || mod.sync;
-    await fn({ apiKey, wildlandPath });
+    await fn({ apiKey, wildlandPath, initialDays: config.sync?.initialDays ?? 15 });
 
     const wildlandFiles = fs.readdirSync(wildlandPath).filter(f => f.endsWith('.md'));
 
@@ -236,7 +236,7 @@ Wildland directory: will be passed as argument${docsContext}`;
     try {
       const mod = await import(scriptPath);
       const fn = mod.default || mod.sync;
-      await fn({ apiKey, wildlandPath });
+      await fn({ apiKey, wildlandPath, initialDays: config.sync?.initialDays ?? 15 });
     } catch (err: any) {
       runSpinner.fail('Connection test failed');
       console.log(chalk.yellow('\nThe connector script may need adjustments.'));

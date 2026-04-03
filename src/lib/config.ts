@@ -30,6 +30,9 @@ export interface GardenConfig {
   schedule: {
     sync: string;
   };
+  sync: {
+    initialDays: number; // how many days back on first sync (0 = everything)
+  };
   git: {
     enabled: boolean;
     autoCommit: boolean;
@@ -103,6 +106,9 @@ export function defaultConfig(): GardenConfig {
     connectors: [],
     schedule: {
       sync: '*/30 * * * *',
+    },
+    sync: {
+      initialDays: 15,
     },
     git: {
       enabled: false,

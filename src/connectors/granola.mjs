@@ -33,7 +33,7 @@ function request(endpoint, apiKey) {
   });
 }
 
-export default async function sync({ apiKey, wildlandPath }) {
+export default async function sync({ apiKey, wildlandPath, initialDays = 15 }) {
   fs.mkdirSync(wildlandPath, { recursive: true });
 
   // Load last sync timestamp
@@ -41,6 +41,8 @@ export default async function sync({ apiKey, wildlandPath }) {
   let lastSync = null;
   if (fs.existsSync(syncFile)) {
     lastSync = fs.readFileSync(syncFile, 'utf-8').trim();
+  } else if (initialDays > 0) {
+    lastSync = new Date(Date.now() - initialDays * 86400000).toISOString();
   }
 
   // Fetch notes list with pagination
