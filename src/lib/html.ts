@@ -520,6 +520,7 @@ export async function generateHtml(
         <div>
           <h1>Wiki</h1>
           <p>${totalPages} pages across ${folderStats.filter(f => f.count > 0).length} categories</p>
+          <p style="font-style:italic;color:var(--text-tertiary);margin-top:4px;font-size:13px">"Gardening is cheaper than therapy and you get tomatoes."</p>
         </div>
         <button onclick="syncTend(this)" class="sync-btn">Sync &amp; Tend</button>
       </div>
