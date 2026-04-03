@@ -12,6 +12,8 @@ interface TendEntity {
   type: 'person' | 'company' | 'product';
   folder: string;
   existingPage: string | null;
+  relevance: number; // 1-5: 1=passing mention, 3=discussed, 5=central topic
+  context: string;   // one-line description of who/what this is in context
 }
 
 interface TendResult {
@@ -115,11 +117,13 @@ export async function tendCommand(): Promise<void> {
         result = await processItem(config, processContent, wikiIndex, wikiPath);
       }
 
+      // Filter out low-relevance entities (passing mentions)
+      const relevantEntities = result.entities.filter(e => (e.relevance ?? 3) >= 2);
+      const skippedCount = result.entities.length - relevantEntities.length;
+
       // Apply entity links to the ORIGINAL full content (not the truncated version)
-      // The AI extracted entities from the truncated content, but we want the full
-      // transcript in the wiki with those same links inserted.
       let fullLinkedText = content;
-      for (const entity of result.entities) {
+      for (const entity of relevantEntities) {
         const entityFileName = sanitizeFilename(entity.name);
         const linkTarget = `../${entity.folder}/${entityFileName}`;
         const link = `[${entity.name}](${linkTarget})`;
@@ -136,7 +140,7 @@ export async function tendCommand(): Promise<void> {
       pagesCreated++;
 
       // Create/update entity pages
-      for (const entity of result.entities) {
+      for (const entity of relevantEntities) {
         entitiesFound++;
         const entityFolder = path.join(wikiPath, entity.folder);
         fs.mkdirSync(entityFolder, { recursive: true });
@@ -144,18 +148,21 @@ export async function tendCommand(): Promise<void> {
         const entityFileName = sanitizeFilename(entity.name);
         const entityPath = path.join(entityFolder, entityFileName);
         const meetingLink = `[${result.title || items[i]}](../Meetings/${meetingFileName})`;
+        const relevanceTag = entity.relevance >= 4 ? '🔵' : entity.relevance >= 3 ? '⚪' : '🔹';
 
         if (entity.existingPage && fs.existsSync(path.join(wikiPath, entity.existingPage))) {
           // Update existing page — add backlink
           const existing = fs.readFileSync(path.join(wikiPath, entity.existingPage), 'utf-8');
           if (!existing.includes(meetingFileName)) {
-            const updated = existing.trimEnd() + `\n- ${meetingLink}\n`;
+            const updated = existing.trimEnd() + `\n- ${relevanceTag} ${meetingLink}\n`;
             fs.writeFileSync(path.join(wikiPath, entity.existingPage), updated, 'utf-8');
             pagesUpdated++;
           }
         } else if (!fs.existsSync(entityPath)) {
-          // Create stub page
-          const stub = `# ${entity.name}\n\nMentioned in:\n- ${meetingLink}\n`;
+          // Create enriched stub page
+          const contextLine = entity.context ? `\n> ${entity.context}\n` : '';
+          const typeLabel = entity.type === 'person' ? 'Person' : entity.type === 'company' ? 'Company' : 'Product';
+          const stub = `# ${entity.name}\n\n**${typeLabel}**${contextLine}\n## Mentioned In\n\n- ${relevanceTag} ${meetingLink}\n`;
           fs.writeFileSync(entityPath, stub, 'utf-8');
           pagesCreated++;
 
@@ -169,7 +176,7 @@ export async function tendCommand(): Promise<void> {
           // Page exists but wasn't in index — add backlink
           const existing = fs.readFileSync(entityPath, 'utf-8');
           if (!existing.includes(meetingFileName)) {
-            const updated = existing.trimEnd() + `\n- ${meetingLink}\n`;
+            const updated = existing.trimEnd() + `\n- ${relevanceTag} ${meetingLink}\n`;
             fs.writeFileSync(entityPath, updated, 'utf-8');
             pagesUpdated++;
           }
@@ -219,7 +226,10 @@ export async function tendCommand(): Promise<void> {
   }
   fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8');
 
-  // Update Index.md
+  // Generate per-folder Index.md files
+  generateFolderIndexes(wikiPath, config.folders, meta);
+
+  // Update root Index.md
   updateIndex(wikiPath, config.folders.map(f => f.name), meta);
 
   // Generate HTML
@@ -291,11 +301,30 @@ Respond with JSON:
   "title": "short descriptive title for this document",
   "date": "ISO date if found in content, or today's date",
   "entities": [
-    { "name": "Entity Name", "type": "person|company|product", "folder": "People|Companies|Products", "existingPage": "People/Entity-Name.md or null if new" }
+    {
+      "name": "Entity Name",
+      "type": "person|company|product",
+      "folder": "People|Companies|Products",
+      "existingPage": "People/Entity-Name.md or null if new",
+      "relevance": 3,
+      "context": "One-line description of who/what this is"
+    }
   ]
 }
 
-Do NOT include the original text in your response. Only return the JSON with title, date, and entities array.
+RELEVANCE SCORING (1-5):
+- 5 = Central topic of the meeting/document (e.g. "this meeting was about closing the Acme deal")
+- 4 = Actively discussed, meaningful context (e.g. "we reviewed Sarah's proposal")
+- 3 = Mentioned with useful context (e.g. "James is fixing the webhook bug")
+- 2 = Briefly mentioned but identifiable (e.g. "François mentioned talking to Railway")
+- 1 = Passing mention, no real context (e.g. "someone said Stripe in passing while discussing something else")
+
+CONTEXT: Write a one-line description useful for someone who doesn't know this entity.
+- For people: role or relationship ("VP Engineering at Acme Corp", "YC partner, advisor on developer tools")
+- For companies: what they do and relationship ("Competitor in AI voice space, raised $16M Series A", "Prospective client, Zürich-based manufacturing")
+- For products: what it is ("Our API product for giving AI agents phone capabilities")
+
+Do NOT include the original text in your response. Only return the JSON.
 
 Rules:
 - Only extract named people, companies/organizations, and products YOUR COMPANY is building
@@ -304,7 +333,8 @@ Rules:
 - Do NOT include dates, generic nouns, algorithms, or vague references
 - If unsure whether something is an entity, don't include it
 - Entity names must match exactly how they appear in the text
-- Use existing page paths when they exist`;
+- Use existing page paths when they exist
+- Be honest with relevance scores — a company mentioned once in passing is a 1, not a 3`;
 
   const fastModel = FAST_MODELS[config.ai.provider] || undefined;
   return await callAIJson<TendResult>(config, systemPrompt, content, 3, fastModel);
@@ -387,6 +417,72 @@ function buildWikiIndex(wikiPath: string, folders: string[]): WikiPage[] {
   }
 
   return pages;
+}
+
+function generateFolderIndexes(
+  wikiPath: string,
+  folders: { name: string; desc: string }[],
+  meta: Record<string, { title: string; type: string }>
+): void {
+  for (const folder of folders) {
+    const folderPath = path.join(wikiPath, folder.name);
+    if (!fs.existsSync(folderPath)) continue;
+
+    const files = fs.readdirSync(folderPath).filter(f => f.endsWith('.md') && f !== 'Index.md');
+    if (files.length === 0) continue;
+
+    const rows: string[] = [];
+    for (const file of files.sort()) {
+      const key = `${folder.name}/${file}`;
+      const title = meta[key]?.title || file.replace('.md', '').replace(/-/g, ' ');
+
+      // Extract first meaningful line after the H1 as description
+      const content = fs.readFileSync(path.join(folderPath, file), 'utf-8');
+      let desc = '';
+
+      // For entity stubs, grab the context line (blockquote after type label)
+      const contextMatch = content.match(/^>\s*(.+)$/m);
+      if (contextMatch) {
+        desc = contextMatch[1].trim();
+      } else {
+        // For meeting pages, grab the summary or first paragraph
+        const summaryMatch = content.match(/## Summary\s*\n\n(.+)/);
+        if (summaryMatch) {
+          desc = summaryMatch[1].trim().slice(0, 120);
+        } else {
+          // Grab first non-heading, non-empty, non-frontmatter line
+          const lines = content.split('\n');
+          let inFrontmatter = false;
+          for (const line of lines) {
+            if (line.trim() === '---') { inFrontmatter = !inFrontmatter; continue; }
+            if (inFrontmatter) continue;
+            if (line.startsWith('#')) continue;
+            if (line.startsWith('**') && line.includes('**')) continue; // type labels
+            const stripped = line.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
+            if (stripped.length > 10) {
+              desc = stripped.slice(0, 120);
+              break;
+            }
+          }
+        }
+      }
+
+      // Strip markdown links from description
+      desc = desc.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+      if (desc.length > 100) desc = desc.slice(0, 100) + '…';
+      rows.push(`| [${title}](${file}) | ${desc} |`);
+    }
+
+    const indexContent = `# ${folder.name}
+
+${folder.desc ? `*${folder.desc}*\n` : ''}
+| Page | Description |
+|------|-------------|
+${rows.join('\n')}
+`;
+
+    fs.writeFileSync(path.join(folderPath, 'Index.md'), indexContent, 'utf-8');
+  }
 }
 
 function updateIndex(wikiPath: string, folders: string[], meta?: Record<string, { title: string }>): void {

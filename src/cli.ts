@@ -10,6 +10,7 @@ import { configCommand } from './commands/config.js';
 import { disconnectCommand } from './commands/disconnect.js';
 import { uninstallCommand } from './commands/uninstall.js';
 import { addCommand, removeCommand, renameCommand, listCommand } from './commands/folders.js';
+import { auditCommand } from './commands/audit.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -86,5 +87,10 @@ program
   .command('list')
   .description('List wiki folders')
   .action(listCommand);
+
+program
+  .command('audit')
+  .description('Check wiki health — broken links, orphans, stale pages')
+  .action(auditCommand);
 
 program.parse();
