@@ -93,10 +93,16 @@ async function connectBuiltin(config: any, connector: BuiltinConnector): Promise
 
   try {
     const mod = await import(destScript);
-    const fn = mod.default || mod.sync;
-    await fn({ apiKey, wildlandPath, initialDays: config.sync?.initialDays ?? 15 });
 
-    const wildlandFiles = fs.readdirSync(wildlandPath).filter(f => f.endsWith('.md'));
+    // Use lightweight test() if available, otherwise fall back to full sync
+    if (typeof mod.test === 'function') {
+      const result = await mod.test({ apiKey });
+      spinner.succeed(`${connector.name}: ${result.message || 'Connected'}`);
+    } else {
+      const fn = mod.default || mod.sync;
+      await fn({ apiKey, wildlandPath, initialDays: config.sync?.initialDays ?? 15 });
+      spinner.succeed(`Connected to ${connector.name}`);
+    }
 
     config.connectors.push({
       name: connector.name,
@@ -109,9 +115,7 @@ async function connectBuiltin(config: any, connector: BuiltinConnector): Promise
 
     saveConfig(config);
 
-    spinner.succeed(`Connected to ${connector.name}`);
-    console.log(`\n  ${chalk.cyan(wildlandFiles.length)} items in wildland`);
-    console.log(`\n  Next: run ${chalk.bold('garden tend')} to process items into your wiki.\n`);
+    console.log(`\n  Next: run ${chalk.bold('garden sync')} to fetch transcripts, then ${chalk.bold('garden tend')} to process them.\n`);
   } catch (err: any) {
     spinner.fail(`Connection to ${connector.name} failed`);
     console.log(chalk.dim(`  Error: ${err.message?.slice(0, 300)}`));
@@ -235,6 +239,7 @@ Wildland directory: will be passed as argument${docsContext}`;
 
     try {
       const mod = await import(scriptPath);
+      // For custom connectors, run the full sync as we can't know their test API
       const fn = mod.default || mod.sync;
       await fn({ apiKey, wildlandPath, initialDays: config.sync?.initialDays ?? 15 });
     } catch (err: any) {
@@ -269,7 +274,7 @@ Wildland directory: will be passed as argument${docsContext}`;
     saveConfig(config);
 
     runSpinner.succeed(`Connected to ${serviceName}`);
-    console.log(`\n  ${chalk.cyan(wildlandFiles.length)} items in wildland`);
+    console.log(`\n  ${chalk.cyan(wildlandFiles.length)} items synced`);
     console.log(`  Connector saved to ${chalk.dim(scriptPath)}`);
     console.log(`\n  Next: run ${chalk.bold('garden tend')} to process items into your wiki.\n`);
 

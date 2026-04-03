@@ -33,6 +33,12 @@ function request(endpoint, apiKey) {
   });
 }
 
+export async function test({ apiKey }) {
+  const result = await request('/v1/documents?limit=1', apiKey);
+  const docs = result.documents || result.data || [];
+  return { ok: true, message: docs.length > 0 ? 'Connected — documents found' : 'Connected — no documents yet' };
+}
+
 export default async function sync({ apiKey, wildlandPath, initialDays = 15 }) {
   fs.mkdirSync(wildlandPath, { recursive: true });
 

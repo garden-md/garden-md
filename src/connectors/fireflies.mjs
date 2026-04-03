@@ -90,6 +90,12 @@ const DETAIL_QUERY = `
   }
 `;
 
+export async function test({ apiKey }) {
+  const result = await graphql('query { transcripts(size: 1) { id title } }', {}, apiKey);
+  const transcripts = result?.data?.transcripts || [];
+  return { ok: true, message: transcripts.length > 0 ? 'Connected — transcripts found' : 'Connected — no transcripts yet' };
+}
+
 export default async function sync({ apiKey, wildlandPath, initialDays = 15 }) {
   fs.mkdirSync(wildlandPath, { recursive: true });
 

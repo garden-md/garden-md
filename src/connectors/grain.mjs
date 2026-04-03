@@ -54,6 +54,14 @@ function requestText(url, apiKey) {
   });
 }
 
+// Lightweight connection test — validates key, returns item count. No downloads.
+export async function test({ apiKey }) {
+  const result = await request(`${API_BASE}/recordings?limit=1`, apiKey);
+  const recordings = result.recordings || [];
+  // Grain doesn't return a total count, so we report what we can
+  return { ok: true, message: recordings.length > 0 ? 'Connected — recordings found' : 'Connected — no recordings yet' };
+}
+
 export default async function sync({ apiKey, wildlandPath, initialDays = 15 }) {
   fs.mkdirSync(wildlandPath, { recursive: true });
 

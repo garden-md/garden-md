@@ -38,8 +38,14 @@ export async function syncCommand(options: { schedule?: boolean; unschedule?: bo
     ? fs.readdirSync(wildlandPath).filter(f => f.endsWith('.md')).length 
     : 0;
 
+  const initialDays = config.sync?.initialDays ?? 15;
+
   for (const connector of config.connectors) {
-    const spinner = ora(`Syncing ${connector.name}...`).start();
+    const isFirstSync = !fs.existsSync(path.join(wildlandPath, `.${sanitizeName(connector.name)}-last-sync`));
+    const syncLabel = isFirstSync
+      ? `Syncing ${connector.name} (first sync — last ${initialDays || '∞'} days, this may take a minute)...`
+      : `Syncing ${connector.name}...`;
+    const spinner = ora(syncLabel).start();
     
     try {
       const keyFile = path.join(getConfigDir(), 'connectors', `${sanitizeName(connector.name)}.key`);
@@ -47,7 +53,7 @@ export async function syncCommand(options: { schedule?: boolean; unschedule?: bo
 
       const mod = await import(connector.scriptPath);
       const fn = mod.default || mod.sync;
-      await fn({ apiKey, wildlandPath, initialDays: config.sync?.initialDays ?? 15 });
+      await fn({ apiKey, wildlandPath, initialDays });
 
       spinner.succeed(`${connector.name}: synced`);
       logSync(connector.name, 'OK');
