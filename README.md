@@ -1,3 +1,5 @@
+Discord [here](https://discord.gg/zVemMYTd)
+
 # 🌱 garden-md
 
 Turn your meeting transcripts into a Wiki for your company.
