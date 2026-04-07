@@ -91,8 +91,8 @@ const DETAIL_QUERY = `
 `;
 
 export async function test({ apiKey }) {
-  const result = await graphql('query { transcripts(size: 1) { id title } }', {}, apiKey);
-  const transcripts = result?.data?.transcripts || [];
+  const result = await graphql('query { transcripts { id title } }', {}, apiKey);
+  const transcripts = result?.transcripts || [];
   return { ok: true, message: transcripts.length > 0 ? 'Connected — transcripts found' : 'Connected — no transcripts yet' };
 }
 
