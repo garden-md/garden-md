@@ -34,6 +34,7 @@ garden connect           # connect Grain, Granola, Fireflies, or any service
 garden sync              # pull your transcripts
 garden tend              # process everything → linked wiki pages
 garden open              # browse your wiki at localhost:4242
+garden watch             # auto-sync + tend every 30 min (set it and forget it)
 ```
 
 ## Demo
@@ -113,7 +114,24 @@ Built-in connectors use pre-built, tested scripts — no AI code generation. For
 | `garden remove <folder>` | Remove a wiki folder |
 | `garden rename <a> <b>` | Rename a wiki folder |
 | `garden list` | Show wiki folders with page counts |
+| `garden watch` | Auto-sync + tend on a loop — set it and forget it |
+| `garden watch --interval 15` | Custom interval (default: 30 min) |
+| `garden watch --once` | Run one sync+tend cycle and exit |
 | `garden uninstall` | Remove config + cron entries (wiki files are kept) |
+
+## Auto-Pilot Mode
+
+Don't want to run `sync` and `tend` manually? Use `watch`:
+
+```bash
+garden watch                # sync + tend every 30 minutes
+garden watch --interval 15  # every 15 minutes
+garden watch --once         # one cycle, then exit (great for cron/CI)
+```
+
+It runs immediately on start, then loops. If there are no new transcripts, it skips the tend step. Ctrl+C to stop.
+
+**Set it and forget it:** Start `garden watch` in a tmux/screen session or as a systemd service, and your wiki stays up to date automatically — every new meeting flows in, gets processed, and your AI agents get smarter without you touching anything.
 
 ## How it works
 
